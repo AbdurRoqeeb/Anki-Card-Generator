@@ -1,0 +1,5 @@
+{
+  "name": "Anki Flashcard Generator",
+  "description": "Create Anki flashcards from your documents (PDF, PPTX, DOCX) in a ready-to-import .txt format. Simply upload a file, choose your card type, and let AI do the work.",
+  "requestFramePermissions": []
+}
