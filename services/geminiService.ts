@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from '@google/genai';
 import type { GeminiResponse } from '../types';
 import { CardType } from '../types';
@@ -56,20 +55,39 @@ const getPromptAndSchema = (cardType: CardType) => {
   }
 };
 
+type DocumentInput = { base64: string; mimeType: string; } | { text: string };
+
+const isFileData = (input: DocumentInput): input is { base64: string; mimeType: string; } => {
+    return (input as { base64: string; mimeType: string; }).base64 !== undefined;
+}
+
 export const generateAnkiCards = async (
-  fileBase64: string,
-  mimeType: string,
-  cardType: CardType
+  documentInput: DocumentInput,
+  cardType: CardType,
+  numCards?: number,
+  customPrompt?: string
 ): Promise<GeminiResponse> => {
-  const { prompt, schema } = getPromptAndSchema(cardType);
+  let { prompt, schema } = getPromptAndSchema(cardType);
   const model = 'gemini-2.5-pro';
+  
+  if (numCards && numCards > 0) {
+    prompt += `\n\nPlease generate approximately ${numCards} flashcards.`;
+  }
+
+  if (customPrompt && customPrompt.trim()) {
+      prompt += `\n\nAdditionally, please adhere to the following instructions: "${customPrompt}"`;
+  }
+
+  const documentPart = isFileData(documentInput)
+    ? { inlineData: { data: documentInput.base64, mimeType: documentInput.mimeType } }
+    : { text: `Analyze the following document content to generate flashcards:\n\n---\n\n${documentInput.text}\n\n---` };
 
   try {
     const response = await ai.models.generateContent({
       model: model,
       contents: {
         parts: [
-          { inlineData: { data: fileBase64, mimeType } },
+          documentPart,
           { text: prompt },
         ],
       },
@@ -82,6 +100,11 @@ export const generateAnkiCards = async (
     });
 
     const jsonText = response.text.trim();
+    // It's possible for the model to return an empty string if it can't find content.
+    if (!jsonText) {
+        throw new Error("The model returned an empty response. It might not have found any content suitable for flashcards in the document.");
+    }
+
     const parsedJson = JSON.parse(jsonText);
     
     if (!parsedJson.cards || !Array.isArray(parsedJson.cards)) {
@@ -92,6 +115,26 @@ export const generateAnkiCards = async (
 
   } catch (error) {
     console.error('Error calling Gemini API:', error);
-    throw new Error('Failed to generate cards. The model may be unable to process this document.');
+    
+    let errorMessage = 'Failed to generate cards. The model may be unable to process this document.';
+
+    if (error instanceof Error) {
+        const lowerCaseMessage = error.message.toLowerCase();
+        
+        if (lowerCaseMessage.includes('429') || lowerCaseMessage.includes('rate limit')) {
+            errorMessage = 'API rate limit exceeded. Please wait a moment and try again.';
+        } else if (lowerCaseMessage.includes('request entity size is larger than') || lowerCaseMessage.includes('too large')) {
+            errorMessage = 'The uploaded document is too large. Please try a smaller file.';
+        } else if (lowerCaseMessage.includes('unsupported mime type')) {
+            errorMessage = 'The file format is not supported by the AI model. Please try a different document.';
+        } else if (error instanceof SyntaxError) { // Catches JSON.parse errors
+            errorMessage = 'The AI model returned an unexpected format. Please try again or adjust your advanced options.';
+        } else {
+            // Keep the specific error message if it's already set by a previous check
+            errorMessage = error.message;
+        }
+    }
+    
+    throw new Error(errorMessage);
   }
 };

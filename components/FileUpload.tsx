@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef } from 'react';
 import { UploadIcon, FileIcon } from './Icons';
 
@@ -12,13 +11,19 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback((file: File | null) => {
-    if (file && ['application/pdf'].includes(file.type)) {
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'  // PPTX
+    ];
+
+    if (file && allowedTypes.includes(file.type)) {
       setFileName(file.name);
       onFileChange(file);
     } else {
       setFileName(null);
       onFileChange(null);
-      if(file) alert('Invalid file type. Please upload a PDF file.');
+      if(file) alert('Invalid file type. Please upload a PDF, DOCX, or PPTX file.');
     }
   }, [onFileChange]);
 
@@ -64,7 +69,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange }) => {
         type="file"
         ref={fileInputRef}
         onChange={handleFileSelect}
-        accept=".pdf"
+        accept=".pdf,.docx,.pptx"
         className="hidden"
       />
       <div
@@ -73,20 +78,23 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileChange }) => {
         onDragOver={handleDragOver}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
-        className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-300 ${isDragging ? 'border-primary bg-blue-900/20' : 'border-border hover:border-gray-500 bg-background/50 hover:bg-secondary'}`}
+        className={`relative flex flex-col items-center justify-center w-full h-56 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-300 overflow-hidden ${isDragging ? 'border-primary bg-blue-900/30 scale-105' : 'border-border hover:border-gray-500 bg-black/20 hover:bg-black/30'}`}
       >
-        <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+         {isDragging && <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm z-10 transition-opacity"></div>}
+         {isDragging && <div className="absolute inset-0 ring-4 ring-primary ring-inset rounded-xl animate-pulse"></div>}
+
+        <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center z-20">
             {fileName ? (
-                <>
-                    <FileIcon className="w-10 h-10 mb-3 text-green-400" />
-                    <p className="font-semibold text-text-primary">{fileName}</p>
-                    <p className="text-xs text-text-secondary">Click or drag to replace the file</p>
-                </>
+                <div className="flex flex-col items-center p-4">
+                    <FileIcon className="w-12 h-12 mb-4 text-success" />
+                    <p className="font-bold text-lg text-text-primary">{fileName}</p>
+                    <p className="text-sm text-text-secondary mt-1">File is ready. Click or drag to replace.</p>
+                </div>
             ) : (
                 <>
-                    <UploadIcon className="w-10 h-10 mb-3 text-text-secondary" />
-                    <p className="mb-2 text-sm text-text-secondary"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                    <p className="text-xs text-text-secondary">PDF only</p>
+                    <UploadIcon className="w-12 h-12 mb-4 text-text-secondary" />
+                    <p className="mb-2 text-lg text-text-primary"><span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Click to upload</span> or drag and drop</p>
+                    <p className="text-sm text-text-secondary">PDF, DOCX, or PPTX documents</p>
                 </>
             )}
         </div>
