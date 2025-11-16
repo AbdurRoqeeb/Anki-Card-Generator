@@ -2,8 +2,6 @@ import { GoogleGenAI, Type } from '@google/genai';
 import type { GeminiResponse } from '../types';
 import { CardType } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const getPromptAndSchema = (cardType: CardType) => {
   switch (cardType) {
     case CardType.CLOZE:
@@ -67,6 +65,11 @@ export const generateAnkiCards = async (
   numCards?: number,
   customPrompt?: string
 ): Promise<GeminiResponse> => {
+  if (!process.env.API_KEY) {
+    throw new Error("API_KEY environment variable not set. Please configure it in your Vercel deployment settings.");
+  }
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
   let { prompt, schema } = getPromptAndSchema(cardType);
   const model = 'gemini-2.5-pro';
   
